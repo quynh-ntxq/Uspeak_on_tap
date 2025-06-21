@@ -1,145 +1,105 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>USPEAK ÔN BÀI</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      padding: 20px;
-    }
-    h1 {
-      font-size: 2em;
-      font-weight: bold;
-    }
-    select, button {
-      font-size: 1em;
-      padding: 0.5em;
-      margin: 0.5em;
-    }
-    #question {
-      margin-top: 20px;
-      font-size: 1.5em;
-      font-weight: bold;
-    }
-    #answer {
-      margin-top: 10px;
-      font-size: 1.3em;
-      display: none;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <title>USPEAK ÔN BÀI</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin-top: 40px; }
+        select, textarea, button { font-size: 16px; margin: 10px; }
+        button { padding: 10px 20px; }
+    </style>
 </head>
 <body>
-  <h1>USPEAK ÔN BÀI</h1>
-  <p>Dữ liệu sẽ được update mới sau từng buổi học.</p>
-  <div>
-    <select id="classSelector">
-      <option disabled selected>Chọn lớp học</option>
+    <h1>USPEAK ÔN BÀI</h1>
+    <p>Dữ liệu sẽ được update mới sau từng buổi học.</p>
+
+    <select id="classDropdown">
+        <option value="">Chọn lớp học</option>
     </select>
-    <select id="typeSelector">
-      <option disabled selected>Chọn loại học</option>
+
+    <select id="typeDropdown">
+        <option value="">Chọn loại học</option>
     </select>
-    <select id="topicSelector" multiple size="4" style="width: 300px;"></select>
-  </div>
-  <div id="question">[Câu sẽ hiện ở đây]</div>
-  <div id="answer"></div>
-  <div>
-    <button onclick="showAnswer()">👁️ Xem kết quả</button>
-    <button onclick="nextQuestion()">🎲 Câu tiếp theo</button>
-  </div>
 
-  <script>
-    let fullData = {};
-    let filteredData = [];
-    let currentIndex = 0;
+    <br>
+    <textarea id="topicsBox" rows="4" cols="50" readonly></textarea>
 
-    function loadExcelFile(url) {
-      fetch(url)
-        .then(response => response.arrayBuffer())
-        .then(data => {
-          const workbook = XLSX.read(data, { type: "array" });
-          for (const sheet of workbook.SheetNames) {
-            const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheet]);
-            rows.forEach(row => {
-              if (row["LỚP"] && row["LOẠI HỌC"] && row["CHỦ ĐỀ"] && row["ĐỀ BÀI"]) {
-                const className = row["LỚP"];
-                if (!fullData[className]) fullData[className] = [];
-                fullData[className].push(row);
-              }
-            });
-          }
-          populateClassSelector();
-        });
-    }
+    <div style="margin-top: 20px;">
+        <button onclick="showAnswer()">👁️ Xem kết quả</button>
+        <button onclick="nextQuestion()">🎲 Câu tiếp theo</button>
+    </div>
 
-    function populateClassSelector() {
-      const classSelector = document.getElementById("classSelector");
-      for (const className in fullData) {
-        const option = document.createElement("option");
-        option.value = className;
-        option.textContent = className;
-        classSelector.appendChild(option);
-      }
-      classSelector.addEventListener("change", () => {
-        populateTypeSelector(classSelector.value);
-      });
-    }
+    <h2 id="questionDisplay" style="margin-top: 30px;">[Câu sẽ hiện ở đây]</h2>
 
-    function populateTypeSelector(className) {
-      const typeSelector = document.getElementById("typeSelector");
-      typeSelector.innerHTML = '<option disabled selected>Chọn loại học</option>';
-      const types = [...new Set(fullData[className].map(r => r["LOẠI HỌC"]))];
-      types.forEach(type => {
-        const option = document.createElement("option");
-        option.value = type;
-        option.textContent = type;
-        typeSelector.appendChild(option);
-      });
-      typeSelector.onchange = () => populateTopicSelector(className, typeSelector.value);
-    }
+    <script>
+        let data = [];
+        let filteredQuestions = [];
+        let currentIndex = 0;
 
-    function populateTopicSelector(className, type) {
-      const topicSelector = document.getElementById("topicSelector");
-      topicSelector.innerHTML = '';
-      const topics = [...new Set(fullData[className]
-        .filter(r => r["LOẠI HỌC"] === type)
-        .map(r => r["CHỦ ĐỀ"]))];
-      topics.forEach(topic => {
-        const option = document.createElement("option");
-        option.value = topic;
-        option.textContent = topic;
-        topicSelector.appendChild(option);
-      });
-      topicSelector.onchange = () => prepareFilteredData(className, type);
-    }
+        async function fetchExcel() {
+            const filenames = ['Uspeak_sample.xlsx', 'data_ready.xlsx', 'data.xlsx'];
+            for (const name of filenames) {
+                try {
+                    const response = await fetch(name);
+                    if (!response.ok) continue;
+                    const arrayBuffer = await response.arrayBuffer();
+                    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
 
-    function prepareFilteredData(className, type) {
-      const selectedTopics = Array.from(document.getElementById("topicSelector").selectedOptions).map(opt => opt.value);
-      filteredData = fullData[className].filter(row =>
-        row["LOẠI HỌC"] === type && selectedTopics.includes(row["CHỦ ĐỀ"]));
-      nextQuestion();
-    }
+                    data = [];
+                    workbook.SheetNames.forEach(sheet => {
+                        const sheetData = XLSX.utils.sheet_to_json(workbook.Sheets[sheet]);
+                        data.push(...sheetData.map(row => ({ ...row, SHEET: sheet })));
+                    });
 
-    function nextQuestion() {
-      if (filteredData.length === 0) return;
-      currentIndex = Math.floor(Math.random() * filteredData.length);
-      document.getElementById("question").textContent = filteredData[currentIndex]["ĐỀ BÀI"];
-      document.getElementById("answer").style.display = "none";
-    }
+                    const classes = [...new Set(data.map(d => d["Lớp"]))].filter(Boolean);
+                    const classDropdown = document.getElementById("classDropdown");
+                    classDropdown.innerHTML = '<option value="">Chọn lớp học</option>' +
+                        classes.map(c => `<option value="${c}">${c}</option>`).join('');
 
-    function showAnswer() {
-      if (filteredData.length === 0) return;
-      const answer = filteredData[currentIndex]["ĐÁP ÁN"] || "Chưa có đáp án.";
-      const answerEl = document.getElementById("answer");
-      answerEl.textContent = answer;
-      answerEl.style.display = "block";
-    }
+                    classDropdown.addEventListener("change", updateTypes);
+                    document.getElementById("typeDropdown").addEventListener("change", updateTopics);
 
-    // Load Excel from GitHub
-    loadExcelFile("Uspeak_sample.xlsx");
-  </script>
+                    return; // stop at the first successful fetch
+                } catch (error) {
+                    console.error("Failed to fetch:", name);
+                }
+            }
+            alert("Không tìm thấy file Excel");
+        }
+
+        function updateTypes() {
+            const selectedClass = document.getElementById("classDropdown").value;
+            const typeDropdown = document.getElementById("typeDropdown");
+            const types = [...new Set(data.filter(d => d["Lớp"] === selectedClass).map(d => d["Loại học"]))].filter(Boolean);
+            typeDropdown.innerHTML = '<option value="">Chọn loại học</option>' +
+                types.map(t => `<option value="${t}">${t}</option>`).join('');
+            document.getElementById("topicsBox").value = "";
+        }
+
+        function updateTopics() {
+            const selectedClass = document.getElementById("classDropdown").value;
+            const selectedType = document.getElementById("typeDropdown").value;
+            const topics = data.filter(d => d["Lớp"] === selectedClass && d["Loại học"] === selectedType)
+                                .map(d => d["Chủ đề"]).filter(Boolean);
+            document.getElementById("topicsBox").value = [...new Set(topics)].join("\n");
+            filteredQuestions = data.filter(d => d["Lớp"] === selectedClass && d["Loại học"] === selectedType);
+            currentIndex = 0;
+        }
+
+        function showAnswer() {
+            const q = filteredQuestions[currentIndex];
+            if (!q) return alert("Vui lòng chọn đầy đủ!");
+            document.getElementById("questionDisplay").innerText = q["Đáp án"] || "[Chưa có đáp án]";
+        }
+
+        function nextQuestion() {
+            if (filteredQuestions.length === 0) return alert("Vui lòng chọn đầy đủ!");
+            currentIndex = Math.floor(Math.random() * filteredQuestions.length);
+            document.getElementById("questionDisplay").innerText = filteredQuestions[currentIndex]["Đề bài"];
+        }
+
+        fetchExcel();
+    </script>
 </body>
 </html>

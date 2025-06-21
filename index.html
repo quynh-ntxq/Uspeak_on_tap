@@ -1,0 +1,142 @@
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <title>ÔN BÀI TALK TO KID</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      padding: 1rem;
+      font-size: 100%;
+    }
+    h1 {
+      font-size: 180%;
+      margin-bottom: 0.5rem;
+    }
+    #question {
+      font-size: 220%;
+      font-weight: bold;
+      margin: 1rem 0;
+      color: #000;
+    }
+    #answer {
+      font-size: 170%;
+      margin: 1rem 0;
+      color: #007b00;
+      display: none;
+    }
+    button {
+      padding: 0.7rem 1.2rem;
+      font-size: 130%;
+      cursor: pointer;
+      margin: 0.5rem;
+    }
+    #controls {
+      margin: 1rem auto;
+      max-width: 500px;
+    }
+    select {
+      width: 100%;
+      padding: 0.5rem;
+      font-size: 100%;
+      margin-bottom: 1rem;
+    }
+
+    @media (max-width: 768px) {
+      body {
+        font-size: 102%;
+      }
+      h1 {
+        font-size: 150%;
+      }
+      #question {
+        font-size: 180%;
+      }
+      #answer {
+        font-size: 144%;
+      }
+      button {
+        font-size: 120%;
+        padding: 0.6rem 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>ÔN BÀI TALK TO KID</h1>
+  <div id="controls">
+    <select id="topicSelect" multiple></select>
+  </div>
+
+  <div id="question">[Câu sẽ hiện ở đây]</div>
+  <div id="answer">[Câu trả lời]</div>
+
+  <button onclick="showAnswer()">👁️ Xem kết quả</button>
+  <button onclick="pickRandom()">🎲 Câu tiếp theo</button>
+
+  <script>
+    let data = [];
+    let filtered = [];
+    let currentIndex = -1;
+    let classFromURL = new URLSearchParams(window.location.search).get("lop") || "";
+
+    fetch("data.xlsx")
+      .then(res => res.arrayBuffer())
+      .then(buffer => {
+        const wb = XLSX.read(buffer, { type: "array" });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet);
+        data = rows.filter(r => r["LỚP"] && r["LỚP"].trim() === classFromURL);
+        const topics = [...new Set(data.map(r => r["CHỦ ĐỀ"]))];
+        const topicSelect = document.getElementById("topicSelect");
+        topicSelect.innerHTML = '<option value="all">Tất cả chủ đề</option>' + topics.map(t => `<option value="${t}">${t}</option>`).join('');
+        const choices = new Choices("#topicSelect", { removeItemButton: true });
+        filtered = [...data];
+      })
+      .catch(err => alert("Lỗi tải dữ liệu: " + err));
+
+    function filterData() {
+      const selected = Array.from(document.querySelector("#topicSelect").selectedOptions).map(o => o.value);
+      if (selected.includes("all") || selected.length === 0) {
+        filtered = [...data];
+      } else {
+        filtered = data.filter(d => selected.includes(d["CHỦ ĐỀ"]));
+      }
+    }
+
+    function pickRandom() {
+      filterData();
+      if (filtered.length === 0) {
+        alert("Không có câu nào trong chủ đề đã chọn.");
+        return;
+      }
+      const rand = Math.floor(Math.random() * filtered.length);
+      const item = filtered[rand];
+      currentIndex = rand;
+      document.getElementById("question").innerText = item["ĐỀ BÀI"];
+      document.getElementById("answer").style.display = "none";
+    }
+
+    function showAnswer() {
+      if (currentIndex === -1) return;
+      const item = filtered[currentIndex];
+      const answerText = item["ĐÁP ÁN"];
+      document.getElementById("answer").innerText = answerText;
+      document.getElementById("answer").style.display = "block";
+
+      const utterance = new SpeechSynthesisUtterance(answerText);
+      utterance.lang = 'en-US';
+      const voices = speechSynthesis.getVoices();
+      const usVoice = voices.find(v => v.lang === 'en-US' && v.name.includes('Google'));
+      if (usVoice) utterance.voice = usVoice;
+      speechSynthesis.speak(utterance);
+    }
+  </script>
+</body>
+</html>

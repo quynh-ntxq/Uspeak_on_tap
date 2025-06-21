@@ -1,0 +1,172 @@
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>ÔN TẬP CÙNG USPEAK</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 1rem;
+      text-align: center;
+      font-size: 110%;
+      line-height: 1.6;
+    }
+    h1 {
+      font-size: 180%;
+      margin-bottom: 0.5rem;
+    }
+    select, button {
+      padding: 0.5rem;
+      font-size: 100%;
+      margin: 0.3rem;
+    }
+    #question {
+      font-size: 160%;
+      font-weight: bold;
+      margin-top: 1.2rem;
+    }
+    #answer {
+      font-size: 140%;
+      color: green;
+      margin-top: 0.8rem;
+      display: none;
+    }
+    @media (max-width: 768px) {
+      body {
+        font-size: 102%;
+      }
+      h1 {
+        font-size: 144%;
+      }
+      #question {
+        font-size: 168%;
+      }
+      #answer {
+        font-size: 144%;
+      }
+      select, button {
+        font-size: 95%;
+        padding: 0.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>ÔN TẬP CÙNG USPEAK</h1>
+  <p>Dữ liệu được cập nhật mới sau từng buổi học.</p>
+
+  <p><strong>Lớp học:</strong>
+    <select id="class-select" onchange="filterByClass()"></select>
+  </p>
+  <p><strong>Loại học:</strong>
+    <select id="mode-select" onchange="filterByMode()"></select>
+  </p>
+  <p><strong>Chủ đề:</strong>
+    <select id="topic-select" multiple size="4"></select>
+  </p>
+
+  <button onclick="showAnswer()">👁️ Xem kết quả</button>
+  <button onclick="nextQuestion()">🎲 Câu tiếp theo</button>
+
+  <div id="question">[Câu sẽ hiện ở đây]</div>
+  <div id="answer">[Đáp án sẽ hiện ở đây]</div>
+
+  <script>
+    let allData = [];
+    let filteredData = [];
+    let currentIndex = -1;
+
+    // Cho phép tự động tải file Excel không cố định tên
+    fetch('./data.xlsx')
+      .then(res => res.arrayBuffer())
+      .then(ab => {
+        const wb = XLSX.read(ab, { type: "array" });
+        wb.SheetNames.forEach(sheet => {
+          const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheet]);
+          allData.push(...rows.map(r => ({
+            LOP: r["LOP"],
+            LOAI_HOC: r["LOAI_HOC"],
+            CHU_DE: r["CHU_DE"],
+            DE_BAI: r["DE_BAI"],
+            DAP_AN: r["DAP_AN"] || ""
+          })));
+        });
+        populateClassOptions();
+      })
+      .catch(err => alert("Không thể tải dữ liệu Excel: " + err));
+
+    function populateClassOptions() {
+      const classes = [...new Set(allData.map(r => r.LOP))];
+      const select = document.getElementById("class-select");
+      select.innerHTML = '<option disabled selected>Chọn lớp</option>';
+      classes.forEach(c => {
+        const opt = document.createElement("option");
+        opt.value = c;
+        opt.textContent = c;
+        select.appendChild(opt);
+      });
+    }
+
+    function filterByClass() {
+      const selectedClass = document.getElementById("class-select").value;
+      const modes = [...new Set(allData.filter(r => r.LOP === selectedClass).map(r => r.LOAI_HOC))];
+      const select = document.getElementById("mode-select");
+      select.innerHTML = '<option disabled selected>Chọn loại học</option>';
+      modes.forEach(m => {
+        const opt = document.createElement("option");
+        opt.value = m;
+        opt.textContent = m;
+        select.appendChild(opt);
+      });
+      document.getElementById("topic-select").innerHTML = "";
+    }
+
+    function filterByMode() {
+      const selectedClass = document.getElementById("class-select").value;
+      const selectedMode = document.getElementById("mode-select").value;
+      const topics = [...new Set(allData.filter(r =>
+        r.LOP === selectedClass && r.LOAI_HOC === selectedMode).map(r => r.CHU_DE))];
+      const select = document.getElementById("topic-select");
+      select.innerHTML = "";
+      topics.forEach(t => {
+        const opt = document.createElement("option");
+        opt.value = t;
+        opt.textContent = t;
+        select.appendChild(opt);
+      });
+    }
+
+    function nextQuestion() {
+      const cls = document.getElementById("class-select").value;
+      const mode = document.getElementById("mode-select").value;
+      const topics = Array.from(document.getElementById("topic-select").selectedOptions).map(o => o.value);
+      if (!cls || !mode || topics.length === 0) {
+        alert("Vui lòng chọn đầy đủ lớp, loại học và chủ đề.");
+        return;
+      }
+
+      filteredData = allData.filter(r =>
+        r.LOP === cls && r.LOAI_HOC === mode && topics.includes(r.CHU_DE)
+      );
+      if (filteredData.length === 0) {
+        alert("Không có dữ liệu phù hợp.");
+        return;
+      }
+
+      currentIndex = Math.floor(Math.random() * filteredData.length);
+      document.getElementById("question").innerText = filteredData[currentIndex].DE_BAI;
+      document.getElementById("answer").innerText = filteredData[currentIndex].DAP_AN;
+      document.getElementById("answer").style.display = "none";
+    }
+
+    function showAnswer() {
+      if (currentIndex >= 0) {
+        document.getElementById("answer").style.display = "block";
+      }
+    }
+  </script>
+</body>
+</html>

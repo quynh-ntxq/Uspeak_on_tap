@@ -3,9 +3,9 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>ÔN TẬP CÙNG USPEAK</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     body {
       font-family: sans-serif;
@@ -13,128 +13,131 @@
       padding: 1rem;
     }
     h1 {
-      font-size: 2rem;
-      margin-bottom: 0.5rem;
+      font-size: 180%;
     }
-    #filters, #filename-box {
-      margin-bottom: 1rem;
+    p {
+      font-size: 120%;
     }
-    select, input[type="text"] {
-      padding: 0.5rem;
-      font-size: 1rem;
-      margin: 0.25rem;
+    select, button {
+      font-size: 120%;
+      margin: 0.5rem;
+      padding: 0.3rem 0.6rem;
     }
     #question {
-      font-size: 1.6rem;
+      font-size: 200%;
       font-weight: bold;
-      margin: 1.5rem 0 1rem;
+      margin: 1.5rem 0;
     }
     #answer {
-      font-size: 1.3rem;
+      font-size: 160%;
+      margin: 1rem 0;
       color: green;
       display: none;
-    }
-    button {
-      padding: 0.5rem 1rem;
-      font-size: 1rem;
-      margin: 0.5rem;
     }
   </style>
 </head>
 <body>
   <h1>ÔN TẬP CÙNG USPEAK</h1>
-  <div id="filename-box">
-    <input type="text" id="filename" placeholder="Nhập tên file Excel (VD: data.xlsx)" />
-    <button onclick="loadExcel()">Tải file</button>
-  </div>
-  <div id="filters" style="display:none;">
-    <select id="lop"></select>
-    <select id="loai"></select>
-    <select id="chude"></select>
-  </div>
+  <p>Dữ liệu sẽ được update mới sau từng buổi học.</p>
+
+  <input type="file" id="fileInput" />
+  <br />
+  <select id="classSelect"></select>
+  <select id="modeSelect">
+    <option value="Phản xạ">Phản xạ</option>
+    <option value="Trả lời">Trả lời</option>
+  </select>
+  <select id="topicSelect" multiple size="5" style="width: 300px;"></select>
+
   <div id="question">[Câu sẽ hiện ở đây]</div>
   <div id="answer">[Đáp án sẽ hiện ở đây]</div>
+
   <button onclick="showAnswer()">👁️ Xem kết quả</button>
   <button onclick="pickRandom()">🎲 Câu tiếp theo</button>
 
   <script>
-    let allData = [];
+    let data = [];
     let filteredData = [];
     let currentIndex = -1;
 
-    function loadExcel() {
-      const fileName = document.getElementById("filename").value || "data.xlsx";
-      fetch(fileName)
-        .then(res => res.arrayBuffer())
-        .then(ab => {
-          const wb = XLSX.read(ab, { type: "array" });
-          const sheet = wb.Sheets[wb.SheetNames[0]];
-          const json = XLSX.utils.sheet_to_json(sheet);
-
-          allData = json.map(row => ({
-            lop: row["LỚP"]?.trim(),
-            loai: row["LOẠI HỌC"]?.trim(),
-            chude: row["CHỦ ĐỀ"]?.trim(),
-            de: row["ĐỀ BÀI"]?.trim(),
-            dap: row["ĐÁP ÁN"]?.trim()
-          })).filter(row => row.lop && row.loai && row.chude && row.de && row.dap);
-
-          if (allData.length === 0) {
-            alert("File không có dữ liệu hợp lệ.");
-            return;
-          }
-
-          document.getElementById("filters").style.display = "block";
-
-          const lopSet = new Set(allData.map(d => d.lop));
-          const loaiSet = new Set(allData.map(d => d.loai));
-          document.getElementById("lop").innerHTML = [...lopSet].map(l => `<option value="${l}">${l}</option>`).join("");
-          document.getElementById("loai").innerHTML = [...loaiSet].map(l => `<option value="${l}">${l}</option>`).join("");
-          updateChuDe();
-          document.getElementById("lop").onchange = updateChuDe;
-          document.getElementById("loai").onchange = updateChuDe;
-        })
-        .catch(e => {
-          alert("Không thể tải file Excel.");
-          console.error(e);
-        });
+    function readExcelFile(file) {
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        const workbook = XLSX.read(e.target.result, { type: "binary" });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const json = XLSX.utils.sheet_to_json(sheet);
+        data = json.filter(row =>
+          row["LỚP"] && row["LOẠI HỌC"] && row["CHỦ ĐỀ"] && row["ĐỀ BÀI"] && row["ĐÁP ÁN"]
+        );
+        populateClassSelect();
+      };
+      reader.readAsBinaryString(file);
     }
 
-    function updateChuDe() {
-      const lop = document.getElementById("lop").value;
-      const loai = document.getElementById("loai").value;
-      const chudeSet = new Set(allData.filter(d => d.lop === lop && d.loai === loai).map(d => d.chude));
-      document.getElementById("chude").innerHTML = [...chudeSet].map(c => `<option value="${c}">${c}</option>`).join("");
+    document.getElementById("fileInput").addEventListener("change", function (e) {
+      const file = e.target.files[0];
+      if (file) readExcelFile(file);
+    });
+
+    function populateClassSelect() {
+      const classSelect = document.getElementById("classSelect");
+      classSelect.innerHTML = '<option value="">-- Chọn lớp học --</option>';
+      const uniqueClasses = [...new Set(data.map(item => item["LỚP"]))];
+      uniqueClasses.forEach(cls => {
+        const option = document.createElement("option");
+        option.value = cls;
+        option.textContent = cls;
+        classSelect.appendChild(option);
+      });
+    }
+
+    document.getElementById("classSelect").addEventListener("change", updateTopics);
+    document.getElementById("modeSelect").addEventListener("change", updateTopics);
+
+    function updateTopics() {
+      const selectedClass = document.getElementById("classSelect").value;
+      const selectedMode = document.getElementById("modeSelect").value;
+      const topicSelect = document.getElementById("topicSelect");
+      topicSelect.innerHTML = "";
+
+      const topics = [...new Set(data
+        .filter(item => item["LỚP"] === selectedClass && item["LOẠI HỌC"] === selectedMode)
+        .map(item => item["CHỦ ĐỀ"]))];
+
+      topics.forEach(topic => {
+        const option = document.createElement("option");
+        option.value = topic;
+        option.textContent = topic;
+        topicSelect.appendChild(option);
+      });
+
+      filteredData = [];
     }
 
     function pickRandom() {
-      const lop = document.getElementById("lop").value;
-      const loai = document.getElementById("loai").value;
-      const chude = document.getElementById("chude").value;
-      filteredData = allData.filter(d => d.lop === lop && d.loai === loai && d.chude === chude);
+      const selectedTopics = Array.from(document.getElementById("topicSelect").selectedOptions).map(opt => opt.value);
+      if (!selectedTopics.length) return alert("Vui lòng chọn ít nhất một chủ đề.");
 
-      if (filteredData.length === 0) {
-        alert("Không có dữ liệu phù hợp.");
-        return;
-      }
+      const selectedClass = document.getElementById("classSelect").value;
+      const selectedMode = document.getElementById("modeSelect").value;
+
+      filteredData = data.filter(item =>
+        item["LỚP"] === selectedClass &&
+        item["LOẠI HỌC"] === selectedMode &&
+        selectedTopics.includes(item["CHỦ ĐỀ"])
+      );
+
+      if (!filteredData.length) return alert("Không có dữ liệu phù hợp.");
 
       currentIndex = Math.floor(Math.random() * filteredData.length);
-      document.getElementById("question").innerText = filteredData[currentIndex].de;
+      document.getElementById("question").innerText = filteredData[currentIndex]["ĐỀ BÀI"];
       document.getElementById("answer").style.display = "none";
     }
 
     function showAnswer() {
       if (currentIndex === -1) return;
-      const answerText = filteredData[currentIndex].dap;
-      document.getElementById("answer").innerText = answerText;
+      document.getElementById("answer").innerText = filteredData[currentIndex]["ĐÁP ÁN"];
       document.getElementById("answer").style.display = "block";
-
-      const utterance = new SpeechSynthesisUtterance(answerText);
-      utterance.lang = 'en-US';
-      const voices = speechSynthesis.getVoices();
-      const americanVoice = voices.find(v => v.lang === 'en-US' && (v.name.includes('Google') || v.name.includes('Microsoft')));
-      if (americanVoice) utterance.voice = americanVoice;
-      speechSynthesis.speak(utterance);
     }
   </script>
 </body>

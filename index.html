@@ -4,48 +4,46 @@
 <head>
   <meta charset="UTF-8" />
   <title>ÔN BÀI TALK TO KID</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
     body {
       font-family: sans-serif;
       text-align: center;
       padding: 1rem;
       font-size: 100%;
+      line-height: 1.6;
     }
     h1 {
       font-size: 180%;
       margin-bottom: 0.5rem;
     }
+    p {
+      font-size: 110%;
+      margin-top: 0;
+      margin-bottom: 1rem;
+    }
     #question {
-      font-size: 220%;
+      font-size: 200%;
       font-weight: bold;
-      margin: 1rem 0;
-      color: #000;
+      margin: 2rem 0 1rem 0;
     }
     #answer {
-      font-size: 170%;
+      font-size: 160%;
       margin: 1rem 0;
       color: #007b00;
       display: none;
     }
     button {
-      padding: 0.7rem 1.2rem;
+      padding: 0.6rem 1rem;
       font-size: 130%;
       cursor: pointer;
       margin: 0.5rem;
     }
-    #controls {
-      margin: 1rem auto;
-      max-width: 500px;
-    }
-    select {
-      width: 100%;
+    select, .multiselect {
+      font-size: 110%;
       padding: 0.5rem;
-      font-size: 100%;
-      margin-bottom: 1rem;
+      margin: 0.5rem;
     }
 
     @media (max-width: 768px) {
@@ -53,26 +51,31 @@
         font-size: 102%;
       }
       h1 {
-        font-size: 150%;
+        font-size: 144%;
+      }
+      p {
+        font-size: 96%;
       }
       #question {
-        font-size: 180%;
+        font-size: 168%;
       }
       #answer {
         font-size: 144%;
       }
       button {
         font-size: 120%;
-        padding: 0.6rem 1rem;
+        padding: 0.5rem 0.8rem;
       }
     }
   </style>
 </head>
 <body>
   <h1>ÔN BÀI TALK TO KID</h1>
-  <div id="controls">
-    <select id="topicSelect" multiple></select>
-  </div>
+  <p>Dữ liệu sẽ được update mới sau từng buổi học.</p>
+
+  <select id="classSelect"></select>
+  <select id="typeSelect"></select>
+  <select multiple id="topicSelect" class="multiselect" size="4" style="min-width: 200px;"></select>
 
   <div id="question">[Câu sẽ hiện ở đây]</div>
   <div id="answer">[Câu trả lời]</div>
@@ -84,59 +87,93 @@
     let data = [];
     let filtered = [];
     let currentIndex = -1;
-    let classFromURL = new URLSearchParams(window.location.search).get("lop") || "";
 
-    fetch("data.xlsx")
-      .then(res => res.arrayBuffer())
-      .then(buffer => {
-        const wb = XLSX.read(buffer, { type: "array" });
-        const sheet = wb.Sheets[wb.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(sheet);
-        data = rows.filter(r => r["LỚP"] && r["LỚP"].trim() === classFromURL);
-        const topics = [...new Set(data.map(r => r["CHỦ ĐỀ"]))];
+    function loadExcel() {
+      fetch('data.xlsx')
+        .then(res => res.arrayBuffer())
+        .then(buf => {
+          const wb = XLSX.read(buf, { type: 'array' });
+          const sheet = wb.Sheets[wb.SheetNames[0]];
+          const json = XLSX.utils.sheet_to_json(sheet);
+
+          data = json.filter(row => row["LỚP HỌC"] && row["LOẠI HỌC"] && row["CHỦ ĐỀ"] && row["ĐỀ BÀI"] && row["ĐÁP ÁN"]);
+          populateSelectors();
+        });
+    }
+
+    function populateSelectors() {
+      const classSet = new Set(data.map(d => d["LỚP HỌC"]));
+      const classSelect = document.getElementById("classSelect");
+      classSelect.innerHTML = "<option disabled selected>Chọn lớp học</option>";
+      classSet.forEach(c => {
+        const option = document.createElement("option");
+        option.value = c;
+        option.text = c;
+        classSelect.appendChild(option);
+      });
+
+      classSelect.onchange = function () {
+        const selectedClass = this.value;
+        const typeSet = new Set(data.filter(d => d["LỚP HỌC"] === selectedClass).map(d => d["LOẠI HỌC"]));
+        const typeSelect = document.getElementById("typeSelect");
+        typeSelect.innerHTML = "";
+        typeSet.forEach(t => {
+          const option = document.createElement("option");
+          option.value = t;
+          option.text = t;
+          typeSelect.appendChild(option);
+        });
+        typeSelect.onchange();
+      };
+
+      typeSelect.onchange = function () {
+        const selectedClass = classSelect.value;
+        const selectedType = this.value;
+        const topicSet = new Set(data.filter(d => d["LỚP HỌC"] === selectedClass && d["LOẠI HỌC"] === selectedType).map(d => d["CHỦ ĐỀ"]));
         const topicSelect = document.getElementById("topicSelect");
-        topicSelect.innerHTML = '<option value="all">Tất cả chủ đề</option>' + topics.map(t => `<option value="${t}">${t}</option>`).join('');
-        const choices = new Choices("#topicSelect", { removeItemButton: true });
-        filtered = [...data];
-      })
-      .catch(err => alert("Lỗi tải dữ liệu: " + err));
-
-    function filterData() {
-      const selected = Array.from(document.querySelector("#topicSelect").selectedOptions).map(o => o.value);
-      if (selected.includes("all") || selected.length === 0) {
-        filtered = [...data];
-      } else {
-        filtered = data.filter(d => selected.includes(d["CHỦ ĐỀ"]));
-      }
+        topicSelect.innerHTML = "";
+        topicSet.forEach(t => {
+          const option = document.createElement("option");
+          option.value = t;
+          option.text = t;
+          topicSelect.appendChild(option);
+        });
+      };
     }
 
     function pickRandom() {
-      filterData();
+      const selectedClass = document.getElementById("classSelect").value;
+      const selectedType = document.getElementById("typeSelect").value;
+      const selectedTopics = Array.from(document.getElementById("topicSelect").selectedOptions).map(opt => opt.value);
+
+      filtered = data.filter(d =>
+        d["LỚP HỌC"] === selectedClass &&
+        d["LOẠI HỌC"] === selectedType &&
+        selectedTopics.includes(d["CHỦ ĐỀ"])
+      );
+
       if (filtered.length === 0) {
-        alert("Không có câu nào trong chủ đề đã chọn.");
+        alert("Không có dữ liệu phù hợp!");
         return;
       }
-      const rand = Math.floor(Math.random() * filtered.length);
-      const item = filtered[rand];
-      currentIndex = rand;
-      document.getElementById("question").innerText = item["ĐỀ BÀI"];
+
+      currentIndex = Math.floor(Math.random() * filtered.length);
+      document.getElementById("question").innerText = filtered[currentIndex]["ĐỀ BÀI"];
       document.getElementById("answer").style.display = "none";
     }
 
     function showAnswer() {
       if (currentIndex === -1) return;
-      const item = filtered[currentIndex];
-      const answerText = item["ĐÁP ÁN"];
+      const answerText = filtered[currentIndex]["ĐÁP ÁN"];
       document.getElementById("answer").innerText = answerText;
       document.getElementById("answer").style.display = "block";
 
       const utterance = new SpeechSynthesisUtterance(answerText);
       utterance.lang = 'en-US';
-      const voices = speechSynthesis.getVoices();
-      const usVoice = voices.find(v => v.lang === 'en-US' && v.name.includes('Google'));
-      if (usVoice) utterance.voice = usVoice;
       speechSynthesis.speak(utterance);
     }
+
+    loadExcel();
   </script>
 </body>
 </html>

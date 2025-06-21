@@ -1,0 +1,173 @@
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>ÔN TẬP CÙNG USPEAK</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      padding: 1rem;
+      font-size: 110%;
+      line-height: 1.6;
+    }
+    h1 {
+      font-size: 180%;
+      font-weight: bold;
+    }
+    select, textarea {
+      font-size: 100%;
+      margin: 0.5rem;
+      padding: 0.4rem;
+    }
+    button {
+      font-size: 120%;
+      padding: 0.6rem 1.2rem;
+      margin: 0.5rem;
+      cursor: pointer;
+    }
+    #question {
+      font-size: 160%;
+      font-weight: bold;
+      margin: 1rem 0;
+    }
+    #answer {
+      font-size: 140%;
+      color: green;
+      display: none;
+    }
+    @media (max-width: 768px) {
+      body {
+        font-size: 102%;
+      }
+      h1 {
+        font-size: 144%;
+      }
+      #question {
+        font-size: 168%;
+      }
+      #answer {
+        font-size: 144%;
+      }
+      button {
+        font-size: 120%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>USPEAK ÔN BÀI</h1>
+  <p>Dữ liệu sẽ được update mới sau từng buổi học.</p>
+
+  <input type="file" id="file-input" accept=".xlsx" />
+  <br/>
+
+  <select id="class-select"></select>
+  <select id="mode-select"></select>
+  <select id="topic-select" multiple size="3" style="min-width: 200px;"></select>
+
+  <div id="question">[Câu sẽ hiện ở đây]</div>
+  <div id="answer">[Đáp án sẽ hiện ở đây]</div>
+
+  <button onclick="showAnswer()">👁️ Xem kết quả</button>
+  <button onclick="nextQuestion()">🎲 Câu tiếp theo</button>
+
+  <script>
+    let data = [];
+    let filteredData = [];
+    let currentIndex = -1;
+
+    document.getElementById("file-input").addEventListener("change", handleFile);
+
+    function handleFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const workbook = XLSX.read(e.target.result, { type: 'binary' });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        const json = XLSX.utils.sheet_to_json(sheet);
+
+        data = json.map(row => ({
+          class: row["LỚP"],
+          mode: row["LOẠI HỌC"],
+          topic: row["CHỦ ĐỀ"],
+          question: row["ĐỀ BÀI"],
+          answer: row["ĐÁP ÁN"]
+        })).filter(row => row.class && row.mode && row.topic && row.question && row.answer);
+
+        populateClassOptions();
+      };
+      reader.readAsBinaryString(file);
+    }
+
+    function populateClassOptions() {
+      const classSelect = document.getElementById("class-select");
+      const classes = [...new Set(data.map(row => row.class))];
+      classSelect.innerHTML = '<option disabled selected>Chọn lớp học</option>';
+      classes.forEach(cls => {
+        const option = document.createElement("option");
+        option.value = cls;
+        option.textContent = cls;
+        classSelect.appendChild(option);
+      });
+      classSelect.onchange = () => populateModeOptions(classSelect.value);
+    }
+
+    function populateModeOptions(selectedClass) {
+      const modeSelect = document.getElementById("mode-select");
+      const modes = [...new Set(data.filter(row => row.class === selectedClass).map(row => row.mode))];
+      modeSelect.innerHTML = '<option disabled selected>Chọn loại học</option>';
+      modes.forEach(m => {
+        const option = document.createElement("option");
+        option.value = m;
+        option.textContent = m;
+        modeSelect.appendChild(option);
+      });
+      modeSelect.onchange = () => populateTopicOptions(selectedClass, modeSelect.value);
+    }
+
+    function populateTopicOptions(selectedClass, selectedMode) {
+      const topicSelect = document.getElementById("topic-select");
+      const topics = [...new Set(data.filter(row => row.class === selectedClass && row.mode === selectedMode).map(row => row.topic))];
+      topicSelect.innerHTML = '';
+      topics.forEach(topic => {
+        const option = document.createElement("option");
+        option.value = topic;
+        option.textContent = topic;
+        topicSelect.appendChild(option);
+      });
+    }
+
+    function nextQuestion() {
+      const selectedClass = document.getElementById("class-select").value;
+      const selectedMode = document.getElementById("mode-select").value;
+      const selectedTopics = Array.from(document.getElementById("topic-select").selectedOptions).map(opt => opt.value);
+      if (!selectedClass || !selectedMode || selectedTopics.length === 0) {
+        alert("Vui lòng chọn lớp, loại học và ít nhất một chủ đề.");
+        return;
+      }
+
+      filteredData = data.filter(row => row.class === selectedClass && row.mode === selectedMode && selectedTopics.includes(row.topic));
+      if (filteredData.length === 0) {
+        alert("Không có dữ liệu phù hợp.");
+        return;
+      }
+
+      currentIndex = Math.floor(Math.random() * filteredData.length);
+      document.getElementById("question").innerText = filteredData[currentIndex].question;
+      document.getElementById("answer").innerText = filteredData[currentIndex].answer;
+      document.getElementById("answer").style.display = "none";
+    }
+
+    function showAnswer() {
+      if (currentIndex === -1) return;
+      document.getElementById("answer").style.display = "block";
+    }
+  </script>
+</body>
+</html>

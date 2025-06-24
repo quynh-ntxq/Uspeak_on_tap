@@ -27,7 +27,7 @@
     }
     .header h1 {
       font-size: 1.2em;
-      color: red;
+      color: red; 
       text-transform: uppercase;
       margin-bottom: 10px;
     }
@@ -128,61 +128,45 @@
   </div>
 
   <script>
-    const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSl_6NodoFDJYMHKL-DR8XT81yOyM6rP9jgVNkRsOW2exvFR_aNodrrm-p6Up6RHO3ibPyeXIX_Rlgi/pub?gid=0&single=true&output=csv';
     let allData = [];
+    let selectedTopics = new Set();
     let filteredData = [];
     let currentIndex = 0;
-    let selectedTopics = new Set();
 
-    fetch(SHEET_URL)
-      .then(res => res.text())
-      .then(data => {
-        const rows = data.split('\n').map(row => row.split(','));
-        const headers = rows[0];
-        allData = rows.slice(1).map(r => Object.fromEntries(r.map((v, i) => [headers[i], v])));
-        const topics = [...new Set(allData.map(item => item.topic))].sort();
-        renderTopics(topics);
-        document.getElementById('topicOptions').innerHTML = '';
-      })
-      .catch(err => {
-        document.getElementById('topicOptions').innerHTML = 'Lỗi tải dữ liệu';
-        console.error('Load CSV failed:', err);
+    async function fetchData() {
+      const url = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSl_6NodoFDJYMHKL-DR8XT81yOyM6rP9jgVNkRsOW2exvFR_aNodrrm-p6Up6RHO3ibPyeXIX_Rlgi/pub?gid=0&single=true&output=csv';
+      const response = await fetch(url);
+      const text = await response.text();
+      const rows = text.split('\n').map(row => row.split(','));
+      const headers = rows[0];
+      allData = rows.slice(1).map(row => {
+        let obj = {};
+        headers.forEach((header, i) => {
+          obj[header.trim().toLowerCase()] = row[i]?.trim();
+        });
+        return obj;
       });
+      renderTopics();
+    }
 
-    function renderTopics(topics) {
+    function renderTopics() {
       const container = document.getElementById('topicOptions');
       container.innerHTML = '';
-      const allCheckbox = createCheckbox('Tất cả', '__all__');
-      container.appendChild(allCheckbox);
-      topics.forEach(topic => container.appendChild(createCheckbox(topic, topic)));
+      const topics = [...new Set(allData.map(item => item.topic))].filter(Boolean);
+
+      topics.forEach(topic => {
+        const div = document.createElement('div');
+        div.className = 'topic-option';
+        div.innerHTML = `<input type="checkbox" onchange="toggleTopic('${topic}')"> ${topic}`;
+        container.appendChild(div);
+      });
     }
 
-    function createCheckbox(label, value) {
-      const div = document.createElement('div');
-      div.className = 'topic-option';
-      const input = document.createElement('input');
-      input.type = 'checkbox';
-      input.value = value;
-      input.onchange = handleTopicChange;
-      const span = document.createElement('span');
-      span.textContent = label;
-      div.appendChild(input);
-      div.appendChild(span);
-      return div;
-    }
-
-    function handleTopicChange(e) {
-      if (e.target.value === '__all__') {
-        const checkboxes = document.querySelectorAll('#topicOptions input[type=checkbox]');
-        const allChecked = e.target.checked;
-        checkboxes.forEach(cb => { cb.checked = allChecked; });
-        selectedTopics = allChecked ? new Set([...checkboxes].map(cb => cb.value).filter(v => v !== '__all__')) : new Set();
-      } else {
-        e.target.checked ? selectedTopics.add(e.target.value) : selectedTopics.delete(e.target.value);
-        document.querySelector('#topicOptions input[value=__all__]').checked = false;
-      }
-      document.getElementById('selectedCount').textContent = 'Số chủ đề đã chọn: ' + selectedTopics.size;
-      document.getElementById('selectedCountInline').textContent = `${selectedTopics.size} chủ đề đã chọn`;
+    function toggleTopic(topic) {
+      if (selectedTopics.has(topic)) selectedTopics.delete(topic);
+      else selectedTopics.add(topic);
+      document.getElementById('selectedCount').innerText = `Số chủ đề đã chọn: ${selectedTopics.size}`;
+      document.getElementById('selectedCountInline').innerText = `(${selectedTopics.size} chủ đề đã chọn)`;
       document.getElementById('selectedCountInline').style.display = 'inline-block';
     }
 
@@ -192,33 +176,32 @@
     }
 
     function confirmTopics() {
-      filteredData = allData.filter(d => selectedTopics.has(d.topic));
-      currentIndex = 0;
       document.getElementById('topicContainer').style.display = 'none';
-      showNext();
+      filteredData = allData.filter(item => selectedTopics.has(item.topic));
+      currentIndex = 0;
+      showQuestion();
     }
 
-    function showNext() {
-      if (!filteredData.length) {
-        document.getElementById('question').textContent = 'Chưa có dữ liệu.';
-        document.getElementById('showAnswerBtn').disabled = true;
-        document.getElementById('nextBtn').disabled = true;
-        return;
-      }
-      const q = filteredData[currentIndex % filteredData.length];
-      document.getElementById('question').textContent = `${currentIndex + 1}. ${q.question}`;
-      document.getElementById('answer').textContent = q.answer;
-      document.getElementById('answer').classList.remove('show');
+    function showQuestion() {
+      if (!filteredData.length) return;
+      const q = filteredData[currentIndex];
+      document.getElementById('question').innerText = `${currentIndex + 1}. ${q.question}`;
+      document.getElementById('answer').innerText = q.answer;
       document.getElementById('showAnswerBtn').disabled = false;
       document.getElementById('nextBtn').disabled = false;
-      currentIndex++;
     }
 
     document.getElementById('showAnswerBtn').onclick = () => {
       document.getElementById('answer').classList.add('show');
-    };
+    }
 
-    document.getElementById('nextBtn').onclick = showNext;
+    document.getElementById('nextBtn').onclick = () => {
+      document.getElementById('answer').classList.remove('show');
+      currentIndex = (currentIndex + 1) % filteredData.length;
+      showQuestion();
+    }
+
+    fetchData();
   </script>
 </body>
 </html>

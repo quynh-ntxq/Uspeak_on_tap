@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Uspeak - Talk to kid</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
   <style>
     body {
@@ -20,188 +21,205 @@
       background: white;
       border-radius: 20px;
       box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-      padding: 20px;
-      max-width: 600px;
+      padding: 30px;
+      max-width: 800px;
       width: 100%;
       text-align: center;
     }
     .header h1 {
-      font-size: 1.2em;
-      color: red; 
-      text-transform: uppercase;
+      font-size: 1.8em;
+      color: red;
       margin-bottom: 10px;
     }
     .header p {
       font-size: 1em;
       color: #666;
-      margin-bottom: 15px;
+      margin-bottom: 20px;
     }
     .question {
       font-size: 2em;
       font-weight: bold;
-      margin: 20px 0;
+      margin: 25px 0;
       color: #333;
     }
     .answer {
-      font-size: 1em;
+      font-size: 1.2em;
       color: green;
       font-weight: bold;
       display: none;
-      margin-bottom: 8px;
+      margin-bottom: 10px;
     }
     .answer.show { display: block; }
     .btn {
-      padding: 6px 14px;
+      padding: 12px 24px;
       border: none;
       border-radius: 20px;
       margin: 10px;
       font-weight: bold;
-      font-size: 0.9em;
+      font-size: 1em;
       cursor: pointer;
     }
-    .btn-primary { background: #607D8B; color: white; font-size: 0.85em; padding: 4px 12px; }
+    .btn-primary { background: #002F87; color: white; }
     .btn-secondary { background: #4CAF50; color: white; }
-    #topicContainer {
-      display: none;
-      margin: 10px 0;
-    }
     .topic-options {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
-      gap: 4px;
-      max-height: 90px;
-      overflow-y: auto;
-      padding: 4px;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      background: #f8f8f8;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 10px;
     }
     .topic-option {
       background: #f0f0f0;
-      padding: 2px 4px;
-      border-radius: 4px;
+      padding: 8px 12px;
+      border-radius: 10px;
       display: flex;
       align-items: center;
-      gap: 4px;
-      font-size: 0.5em;
+      gap: 6px;
     }
     .topic-option input[type="checkbox"] {
       cursor: pointer;
     }
-    #selectedCount {
-      font-size: 0.8em;
-      color: #333;
-      margin-bottom: 8px;
-      display: block;
-    }
-    #selectedCountInline {
-      font-size: 0.8em;
-      color: #333;
-      display: inline-block;
-      margin-left: 10px;
+    #progress {
+      font-weight: bold;
+      margin-top: 10px;
     }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <h1>Uspeak - Talk to kid</h1>
-      <p>Ôn luyện mỗi ngày một chút, để tự tin giao tiếp hơn.</p>
+      <h1>USPEAK-TALK TO KID</h1>
+      <p>Dữ liệu sẽ được update mới sau từng buổi học.</p>
     </div>
 
-    <div>
-      <button onclick="toggleTopics()" class="btn btn-primary">🎯 Chọn chủ đề</button>
-      <span id="selectedCountInline" style="display:none;"></span>
-    </div>
-
-    <div id="topicContainer">
-      <div id="selectedCount">Số chủ đề đã chọn: 0</div>
-      <div id="topicOptions" class="topic-options">Đang tải dữ liệu...</div>
-      <button class="btn btn-primary" onclick="confirmTopics()">✅ Xác nhận chủ đề</button>
-    </div>
-
+    <div id="topicOptions" class="topic-options">Đang tải dữ liệu...</div>
     <div class="question" id="question">Chưa có dữ liệu.</div>
     <div class="answer" id="answer"></div>
+    <div id="progress">0/0 câu</div>
 
     <button class="btn btn-primary" id="showAnswerBtn" disabled><i class="fa fa-eye"></i> Xem kết quả</button>
     <button class="btn btn-secondary" id="nextBtn" disabled><i class="fa fa-dice"></i> Câu tiếp theo</button>
   </div>
 
   <script>
-    let allData = [];
-    let selectedTopics = new Set();
-    let filteredData = [];
-    let currentIndex = 0;
+    let allData = [], filteredData = [], usedIndexes = [], currentIndex = -1;
 
-    async function fetchData() {
-      const url = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSl_6NodoFDJYMHKL-DR8XT81yOyM6rP9jgVNkRsOW2exvFR_aNodrrm-p6Up6RHO3ibPyeXIX_Rlgi/pub?gid=0&single=true&output=csv';
-      const response = await fetch(url);
-      const text = await response.text();
-      const rows = text.split('\n').map(row => row.split(','));
-      const headers = rows[0];
-      allData = rows.slice(1).map(row => {
-        let obj = {};
-        headers.forEach((header, i) => {
-          obj[header.trim().toLowerCase()] = row[i]?.trim();
-        });
-        return obj;
-      });
-      renderTopics();
+    const possibleFiles = [
+      'Uspeak_TTK.xlsx',
+      'data.xlsx'
+    ];
+
+    async function tryLoadExcelFiles() {
+      for (const file of possibleFiles) {
+        try {
+          const res = await fetch(file);
+          if (!res.ok) continue;
+
+          const buffer = await res.arrayBuffer();
+          const workbook = XLSX.read(buffer, { type: "array" });
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          const json = XLSX.utils.sheet_to_json(sheet);
+
+          allData = json.map(row => ({
+            topic: row["CHU_DE"]?.toString().trim(),
+            vi: row["DE_BAI"]?.toString().trim(),
+            en: row["DAP_AN"]?.toString().trim()
+          })).filter(item => item.topic && item.vi && item.en);
+
+          createTopicCheckboxes();
+          return;
+        } catch (err) {
+          console.log("Không thể đọc file:", file);
+        }
+      }
+      document.getElementById("question").innerText = "Không tìm thấy file Excel phù hợp!";
     }
 
-    function renderTopics() {
-      const container = document.getElementById('topicOptions');
+    function createTopicCheckboxes() {
+      const container = document.getElementById("topicOptions");
+      const topics = [...new Set(allData.map(d => d.topic))].sort();
       container.innerHTML = '';
-      const topics = [...new Set(allData.map(item => item.topic))].filter(Boolean);
+
+      const allBox = document.createElement("div");
+      allBox.className = "topic-option";
+      allBox.innerHTML = `<input type="checkbox" id="allTopics"> <label for="allTopics"><strong>Tất cả</strong></label>`;
+      container.appendChild(allBox);
 
       topics.forEach(topic => {
-        const div = document.createElement('div');
-        div.className = 'topic-option';
-        div.innerHTML = `<input type="checkbox" onchange="toggleTopic('${topic}')"> ${topic}`;
+        const div = document.createElement("div");
+        div.className = "topic-option";
+        div.innerHTML = `<input type="checkbox" class="topicCheckbox" value="${topic}"> <label>${topic}</label>`;
         container.appendChild(div);
       });
+
+      container.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        cb.addEventListener("change", handleTopicFilter);
+      });
+
+      handleTopicFilter();
     }
 
-    function toggleTopic(topic) {
-      if (selectedTopics.has(topic)) selectedTopics.delete(topic);
-      else selectedTopics.add(topic);
-      document.getElementById('selectedCount').innerText = `Số chủ đề đã chọn: ${selectedTopics.size}`;
-      document.getElementById('selectedCountInline').innerText = `(${selectedTopics.size} chủ đề đã chọn)`;
-      document.getElementById('selectedCountInline').style.display = 'inline-block';
+    function handleTopicFilter() {
+      const checkAll = document.getElementById("allTopics").checked;
+      const checkboxes = document.querySelectorAll(".topicCheckbox");
+
+      let selectedTopics = [];
+
+      if (checkAll) {
+        filteredData = [...allData];
+        checkboxes.forEach(cb => cb.checked = false);
+      } else {
+        selectedTopics = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value);
+        filteredData = allData.filter(item => selectedTopics.includes(item.topic));
+      }
+
+      usedIndexes = [];
+      document.getElementById("progress").innerText = `0/${filteredData.length} câu`;
+
+      document.getElementById("nextBtn").disabled = filteredData.length === 0;
+      document.getElementById("showAnswerBtn").disabled = true;
+
+      if (filteredData.length > 0) {
+        nextQuestion();
+      } else {
+        document.getElementById("question").innerText = "Vui lòng chọn ít nhất một chủ đề!";
+        document.getElementById("answer").innerText = "";
+      }
     }
 
-    function toggleTopics() {
-      const box = document.getElementById('topicContainer');
-      box.style.display = box.style.display === 'none' ? 'block' : 'none';
-    }
+    function nextQuestion() {
+      if (filteredData.length === 0) return;
+      if (usedIndexes.length === filteredData.length) usedIndexes = [];
 
-    function confirmTopics() {
-      document.getElementById('topicContainer').style.display = 'none';
-      filteredData = allData.filter(item => selectedTopics.has(item.topic));
-      currentIndex = 0;
-      showQuestion();
-    }
+      const availableIndexes = filteredData.map((_, idx) => idx).filter(idx => !usedIndexes.includes(idx));
+      currentIndex = availableIndexes[Math.floor(Math.random() * availableIndexes.length)];
+      usedIndexes.push(currentIndex);
 
-    function showQuestion() {
-      if (!filteredData.length) return;
       const q = filteredData[currentIndex];
-      document.getElementById('question').innerText = `${currentIndex + 1}. ${q.question}`;
-      document.getElementById('answer').innerText = q.answer;
-      document.getElementById('showAnswerBtn').disabled = false;
-      document.getElementById('nextBtn').disabled = false;
+      document.getElementById("question").innerText = q.vi;
+      document.getElementById("answer").innerText = q.en;
+      document.getElementById("answer").classList.remove("show");
+      document.getElementById("showAnswerBtn").disabled = false;
+
+      document.getElementById("progress").innerText = `${usedIndexes.length}/${filteredData.length} câu`;
     }
 
-    document.getElementById('showAnswerBtn').onclick = () => {
-      document.getElementById('answer').classList.add('show');
+    function showAnswer() {
+      const text = document.getElementById("answer").innerText;
+      document.getElementById("answer").classList.add("show");
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = "en-US";
+      const voices = speechSynthesis.getVoices();
+      const preferred = voices.find(v => v.lang === 'en-US' && v.name.toLowerCase().includes('google'));
+      if (preferred) utterance.voice = preferred;
+      speechSynthesis.speak(utterance);
     }
 
-    document.getElementById('nextBtn').onclick = () => {
-      document.getElementById('answer').classList.remove('show');
-      currentIndex = (currentIndex + 1) % filteredData.length;
-      showQuestion();
-    }
+    document.getElementById("nextBtn").addEventListener("click", nextQuestion);
+    document.getElementById("showAnswerBtn").addEventListener("click", showAnswer);
 
-    fetchData();
+    tryLoadExcelFiles();
   </script>
 </body>
 </html>

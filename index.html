@@ -15,84 +15,47 @@
       --text:#333;
     }
     *{box-sizing:border-box}
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      background: linear-gradient(135deg, var(--brand), #6A75B3);
-      min-height: 100vh;
-      margin: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-      color: var(--text);
+    body{
+      font-family:'Segoe UI',sans-serif;
+      background:linear-gradient(135deg,var(--brand),#6A75B3);
+      min-height:100vh;margin:0;display:flex;align-items:center;justify-content:center;padding:20px;color:var(--text);
     }
-    .container {
-      background: white;
-      border-radius: 20px;
-      box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-      padding: 24px;
-      max-width: 820px;
-      width: 100%;
-      text-align: center;
+    .container{
+      background:white;border-radius:20px;box-shadow:0 20px 40px rgba(0,0,0,.1);
+      padding:24px;max-width:820px;width:100%;text-align:center;
     }
-    .header h1 {
-      font-size: 1.6rem;
-      color: #d32f2f;
-      margin: 0 0 6px;
-    }
-    .header p { font-size: .95rem; color: #666; margin: 0 0 14px; }
+    .header h1{font-size:1.6rem;color:#d32f2f;margin:0 0 6px}
+    .header p{font-size:.95rem;color:#666;margin:0 0 14px}
 
-    /* -------- Compact, aligned topic area -------- */
-    .topics-wrap{ /* khung riêng để giới hạn diện tích */
-      max-width: 820px; /* không vượt quá card */
-      margin: 0 auto 12px;
-      padding: 0 2px;
+    /* Vùng checkbox gọn + thẳng hàng */
+    .topics-wrap{max-width:820px;margin:0 auto 12px;padding:0 2px}
+    #topicOptions{
+      display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));
+      gap:6px;justify-items:start;align-items:center;font-size:13px;
+      max-height:170px;overflow:auto;padding:6px;border-radius:10px;background:#fafafa;border:1px solid #eee;
     }
-    #topicOptions {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-      gap: 6px;               /* khoảng cách nhỏ gọn */
-      justify-items: start;   /* căn trái đều */
-      align-items: center;
-      font-size: 13px;        /* chữ nhỏ hơn */
-      max-height: 170px;      /* ↓ giới hạn chiều cao vùng chọn  */
-      overflow: auto;         /* có scroll khi nhiều mục */
-      padding: 6px;           /* padding mỏng để diện tích nhỏ hơn */
-      border-radius: 10px;
-      background: #fafafa;
-      border: 1px solid #eee;
+    .topic-option{
+      background:var(--chip-bg);padding:4px 8px;border-radius:8px;display:flex;align-items:center;gap:6px;border:1px solid var(--chip-bd);
+      white-space:nowrap;min-height:28px
     }
-    .topic-option {
-      background: var(--chip-bg);
-      padding: 4px 8px;       /* chip mỏng hơn */
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      border: 1px solid var(--chip-bd);
-      white-space: nowrap;    /* giữ label 1 dòng khi có thể */
-      min-height: 28px;
-    }
-    .topic-option input[type="checkbox"] { transform: scale(0.9); cursor: pointer; }
-    .topic-option label{ cursor: pointer; }
+    .topic-option input[type="checkbox"]{transform:scale(.9);cursor:pointer}
+    .topic-option label{cursor:pointer}
 
-    /* Question & Answer emphasis */
-    .question { font-size: 2rem; font-weight: 700; margin: 18px 0; color: var(--text); }
-    .answer { font-size: 1.25rem; color: #2e7d32; font-weight: 700; display: none; margin-bottom: 10px; }
-    .answer.show { display: block; }
+    .question{font-size:2rem;font-weight:700;margin:18px 0;color:var(--text)}
+    .answer{font-size:1.25rem;color:#2e7d32;font-weight:700;display:none;margin-bottom:10px}
+    .answer.show{display:block}
 
-    .btn { padding: 12px 20px; border: none; border-radius: 20px; margin: 8px; font-weight: 700; font-size: 1rem; cursor: pointer; }
-    .btn-primary { background: var(--brand); color: #fff; }
-    .btn-secondary { background: var(--accent); color: #fff; }
+    .btn{padding:12px 20px;border:none;border-radius:20px;margin:8px;font-weight:700;font-size:1rem;cursor:pointer}
+    .btn-primary{background:var(--brand);color:#fff}
+    .btn-secondary{background:var(--accent);color:#fff}
 
-    #progress { font-weight: 700; margin-top: 6px; }
+    #progress{font-weight:700;margin-top:6px}
 
-    /* Mobile tweaks */
-    @media (max-width: 480px){
-      .container{ padding: 18px; }
-      #topicOptions{ grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); font-size: 12px; max-height: 160px; }
-      .question{ font-size: 1.6rem; }
-      .answer{ font-size: 1.05rem; }
+    @media (max-width:480px){
+      .container{padding:18px}
+      #topicOptions{grid-template-columns:repeat(auto-fill,minmax(120px,1fr));font-size:12px;max-height:160px}
+      .question{font-size:1.6rem}
+      .answer{font-size:1.05rem}
     }
   </style>
 </head>
@@ -118,48 +81,80 @@
   <script>
     let allData = [], filteredData = [], usedIndexes = [], currentIndex = -1;
 
-    const possibleFiles = [ 'Uspeak_TTK.xlsx', 'data.xlsx' ];
+    /* --------- Đường dẫn file Excel cho GitHub Pages (subpath) --------- */
+    const basePath = location.pathname.replace(/[^/]+$/,'');
+    const possibleFiles = [
+      `${basePath}Uspeak_TTK.xlsx`,
+      `${basePath}data.xlsx`,
+      'Uspeak_TTK.xlsx', // fallback
+      'data.xlsx'        // fallback
+    ];
 
+    /* --------- Load Excel: đọc tất cả sheet + tắt cache --------- */
     async function tryLoadExcelFiles() {
-      for (const file of possibleFiles) {
+      const errors = [];
+      for (const url of possibleFiles) {
         try {
-          const res = await fetch(file);
-          if (!res.ok) continue;
+          const res = await fetch(encodeURI(url), { cache: 'no-store' });
+          if (!res.ok) { errors.push(`${url} -> HTTP ${res.status}`); continue; }
 
           const buffer = await res.arrayBuffer();
           const workbook = XLSX.read(buffer, { type: "array" });
-          const sheet = workbook.Sheets[workbook.SheetNames[0]];
-          const json = XLSX.utils.sheet_to_json(sheet);
 
-          allData = json.map(row => ({
-            topic: row["CHU_DE"]?.toString().trim(),
-            vi: row["DE_BAI"]?.toString().trim(),
-            en: row["DAP_AN"]?.toString().trim()
+          // Gộp tất cả sheet
+          let merged = [];
+          for (const sName of workbook.SheetNames) {
+            const sheet = workbook.Sheets[sName];
+            if (!sheet) continue;
+            const json = XLSX.utils.sheet_to_json(sheet);
+            if (Array.isArray(json) && json.length) merged = merged.concat(json);
+          }
+
+          // Đọc linh hoạt tên cột
+          const pick = (row, keys) => {
+            for (const k of keys) {
+              if (row[k] !== undefined && row[k] !== null && `${row[k]}`.trim() !== '') return `${row[k]}`;
+            }
+            const norm = Object.fromEntries(Object.keys(row).map(k => [k.toLowerCase().replace(/\s|_/g,''), k]));
+            for (const k of keys) {
+              const kk = k.toLowerCase().replace(/\s|_/g,'');
+              const real = norm[kk];
+              if (real !== undefined) {
+                const v = row[real];
+                if (v !== undefined && v !== null && `${v}`.trim() !== '') return `${v}`;
+              }
+            }
+            return '';
+          };
+
+          allData = merged.map(row => ({
+            topic: pick(row, ["CHU_DE","CHU DE","CHUDE","Chu_de","chu_de","TOPIC","Chủ đề","Chude"]).trim(),
+            vi:    pick(row, ["DE_BAI","DE BAI","DEBAI","De_bai","CÂU HỎI","VI","Question"]).trim(),
+            en:    pick(row, ["DAP_AN","DAP AN","DAPAN","Dap_an","TRẢ LỜI","EN","Answer"]).trim()
           })).filter(item => item.topic && item.vi && item.en);
 
           createTopicCheckboxes();
-          return;
-        } catch (err) { console.log("Không thể đọc file:", file); }
+          return; // OK
+        } catch (err) {
+          errors.push(`${url} -> ${err && err.message ? err.message : 'fetch/read failed'}`);
+        }
       }
-      document.getElementById("question").innerText = "Không tìm thấy file Excel phù hợp!";
+      document.getElementById("question").innerText = "Không tìm thấy file Excel phù hợp!\n" + errors.join("\n");
     }
 
-    // Natural sort theo số thứ tự ở đầu chuỗi nếu có (1,2,3,10,...)
+    /* --------- Sắp xếp số tự nhiên cho chủ đề (1,2,3…10,11) --------- */
     function naturalTopicSort(a, b){
-      const mA = a.match(/^\s*(\d+)/); // số ở đầu
-      const mB = b.match(/^\s*(\d+)/);
+      const mA = a.match(/^\s*(\d+)/), mB = b.match(/^\s*(\d+)/);
       if (mA && mB) {
-        const nA = parseInt(mA[1], 10);
-        const nB = parseInt(mB[1], 10);
+        const nA = +mA[1], nB = +mB[1];
         if (nA !== nB) return nA - nB;
-        // nếu cùng số, so sánh phần còn lại để ổn định
         const restA = a.slice(mA[0].length).trim();
         const restB = b.slice(mB[0].length).trim();
-        return restA.localeCompare(restB, 'vi');
+        return restA.localeCompare(restB,'vi');
       }
-      if (mA) return -1; // cái có số đứng trước
+      if (mA) return -1;
       if (mB) return 1;
-      return a.localeCompare(b, 'vi');
+      return a.localeCompare(b,'vi');
     }
 
     function createTopicCheckboxes() {
@@ -170,14 +165,14 @@
       // Tất cả
       const allBox = document.createElement("div");
       allBox.className = "topic-option";
-      allBox.innerHTML = `<input type="checkbox" id="allTopics"> <label for="allTopics"><strong>Tất cả</strong></label>`;
+      allBox.innerHTML = `<input type="checkbox" id="allTopics" checked> <label for="allTopics"><strong>Tất cả</strong></label>`;
       container.appendChild(allBox);
 
-      // Các chủ đề còn lại
+      // Chủ đề
       topics.forEach(topic => {
         const div = document.createElement("div");
         div.className = "topic-option";
-        const safeId = `t_${btoa(topic).replace(/[^a-z0-9]/gi,'')}`; // id an toàn
+        const safeId = `t_${btoa(topic).replace(/[^a-z0-9]/gi,'')}`;
         div.innerHTML = `<input type="checkbox" class="topicCheckbox" id="${safeId}" value="${topic}"> <label for="${safeId}">${topic}</label>`;
         container.appendChild(div);
       });
@@ -206,9 +201,8 @@
       document.getElementById("nextBtn").disabled = filteredData.length === 0;
       document.getElementById("showAnswerBtn").disabled = true;
 
-      if (filteredData.length > 0) {
-        nextQuestion();
-      } else {
+      if (filteredData.length > 0) nextQuestion();
+      else {
         document.getElementById("question").innerText = "Vui lòng chọn ít nhất một chủ đề!";
         document.getElementById("answer").innerText = "";
       }
@@ -218,8 +212,8 @@
       if (filteredData.length === 0) return;
       if (usedIndexes.length === filteredData.length) usedIndexes = [];
 
-      const availableIndexes = filteredData.map((_, idx) => idx).filter(idx => !usedIndexes.includes(idx));
-      currentIndex = availableIndexes[Math.floor(Math.random() * availableIndexes.length)];
+      const available = filteredData.map((_, i) => i).filter(i => !usedIndexes.includes(i));
+      currentIndex = available[Math.floor(Math.random() * available.length)];
       usedIndexes.push(currentIndex);
 
       const q = filteredData[currentIndex];

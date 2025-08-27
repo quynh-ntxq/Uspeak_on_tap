@@ -116,8 +116,8 @@
     // TTS HELPER + AUTOPLAY GATE
     // ===================
     let cachedVoices = [];
-    let canAutoSpeak = false;     // chỉ true sau tương tác đầu tiên
-    let pendingSpeakText = null;  // lưu câu hỏi nếu hiển thị trước khi được phép autoplay
+    let canAutoSpeak = false;
+    let pendingSpeakText = null;
 
     const refreshVoices = () => { cachedVoices = speechSynthesis.getVoices(); };
     speechSynthesis.onvoiceschanged = refreshVoices; refreshVoices();
@@ -129,12 +129,13 @@
       return v || cachedVoices.find(v => v.lang?.toLowerCase() === langCode.toLowerCase()) || null;
     }
 
-    function speakText(text, langCode) {
+    function speakText(text, langCode, rate=1) {
       if (!text) return;
       try {
         if (speechSynthesis.speaking) speechSynthesis.cancel();
         const u = new SpeechSynthesisUtterance(text);
         u.lang = langCode;
+        u.rate = rate;
         const v = pickVoice(langCode);
         if (v) u.voice = v;
         speechSynthesis.speak(u);
@@ -143,13 +144,12 @@
       }
     }
 
-    // cấp quyền autoplay sau tương tác đầu tiên (bất kỳ click/keydown nào)
     const enableAutoSpeakOnce = () => {
       if (!canAutoSpeak) {
         canAutoSpeak = true;
         if (pendingSpeakText) {
           const text = pendingSpeakText; pendingSpeakText = null;
-          speakText(text, 'vi-VN');
+          speakText(text, 'vi-VN', 2); // tốc độ 2x cho câu hỏi
         }
       }
       document.removeEventListener('click', enableAutoSpeakOnce, true);
@@ -261,19 +261,18 @@
 
       document.getElementById('progress').innerText = `${usedIndexes.length}/${filteredData.length} câu`;
 
-      // === TỰ ĐỘNG ĐỌC DE_BAI (tiếng Việt) ===
+      // tự động đọc DE_BAI với tốc độ 2x
       if (canAutoSpeak) {
-        speakText(q.vi, 'vi-VN');
+        speakText(q.vi, 'vi-VN', 2);
       } else {
-        pendingSpeakText = q.vi; // chờ user tương tác đầu tiên
+        pendingSpeakText = q.vi;
       }
     }
 
     function showAnswer() {
       const text = document.getElementById('answer').innerText;
       document.getElementById('answer').classList.add('show');
-      // đọc đáp án (tiếng Anh) — giữ như cũ nhưng dùng helper cho gọn
-      speakText(text, 'en-US');
+      speakText(text, 'en-US', 1);
     }
 
     // ===================
@@ -282,7 +281,6 @@
     document.getElementById('nextBtn').addEventListener('click', nextQuestion);
     document.getElementById('showAnswerBtn').addEventListener('click', showAnswer);
 
-    // BẮT ĐẦU
     tryLoadExcelFiles();
   </script>
 </body>

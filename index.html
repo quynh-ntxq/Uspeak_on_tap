@@ -7,55 +7,81 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
   <style>
-    :root{
-      --brand:#002F87;
-      --accent:#4CAF50;
-      --chip-bg:#f9f9f9;
-      --chip-bd:#ddd;
-      --text:#333;
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #002F87, #6A75B3);
+      min-height: 100vh;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
     }
-    *{box-sizing:border-box}
-    body{
-      font-family:'Segoe UI',sans-serif;
-      background:linear-gradient(135deg,var(--brand),#6A75B3);
-      min-height:100vh;margin:0;display:flex;align-items:center;justify-content:center;padding:20px;color:var(--text);
+    .container {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+      padding: 30px;
+      max-width: 800px;
+      width: 100%;
+      text-align: center;
     }
-    .container{
-      background:white;border-radius:20px;box-shadow:0 20px 40px rgba(0,0,0,.1);
-      padding:24px;max-width:820px;width:100%;text-align:center;
+    .header h1 {
+      font-size: 1.8em;
+      color: red;
+      margin-bottom: 10px;
     }
-    .header h1{font-size:1.6rem;color:#d32f2f;margin:0 0 6px}
-    .header p{font-size:.95rem;color:#666;margin:0 0 14px}
-
-    /* Vùng checkbox gọn + thẳng hàng */
-    .topics-wrap{max-width:820px;margin:0 auto 12px;padding:0 2px}
-    #topicOptions{
-      display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));
-      gap:6px;justify-items:start;align-items:center;font-size:13px;
-      max-height:170px;overflow:auto;padding:6px;border-radius:10px;background:#fafafa;border:1px solid #eee;
+    .header p {
+      font-size: 1em;
+      color: #666;
+      margin-bottom: 20px;
     }
-    .topic-option{
-      background:var(--chip-bg);padding:4px 8px;border-radius:8px;display:flex;align-items:center;gap:6px;border:1px solid var(--chip-bd);
-      white-space:nowrap;min-height:28px
+    .question {
+      font-size: 2em;
+      font-weight: bold;
+      margin: 25px 0;
+      color: #333;
     }
-    .topic-option input[type="checkbox"]{transform:scale(.9);cursor:pointer}
-    .topic-option label{cursor:pointer}
-
-    .question{font-size:2rem;font-weight:700;margin:18px 0;color:var(--text)}
-    .answer{font-size:1.25rem;color:#2e7d32;font-weight:700;display:none;margin-bottom:10px}
-    .answer.show{display:block}
-
-    .btn{padding:12px 20px;border:none;border-radius:20px;margin:8px;font-weight:700;font-size:1rem;cursor:pointer}
-    .btn-primary{background:var(--brand);color:#fff}
-    .btn-secondary{background:var(--accent);color:#fff}
-
-    #progress{font-weight:700;margin-top:6px}
-
-    @media (max-width:480px){
-      .container{padding:18px}
-      #topicOptions{grid-template-columns:repeat(auto-fill,minmax(120px,1fr));font-size:12px;max-height:160px}
-      .question{font-size:1.6rem}
-      .answer{font-size:1.05rem}
+    .answer {
+      font-size: 1.2em;
+      color: green;
+      font-weight: bold;
+      display: none;
+      margin-bottom: 10px;
+    }
+    .answer.show { display: block; }
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 20px;
+      margin: 10px;
+      font-weight: bold;
+      font-size: 1em;
+      cursor: pointer;
+    }
+    .btn-primary { background: #002F87; color: white; }
+    .btn-secondary { background: #4CAF50; color: white; }
+    .topic-options {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .topic-option {
+      background: #f0f0f0;
+      padding: 8px 12px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .topic-option input[type="checkbox"] {
+      cursor: pointer;
+    }
+    #progress {
+      font-weight: bold;
+      margin-top: 10px;
     }
   </style>
 </head>
@@ -66,10 +92,7 @@
       <p>Dữ liệu sẽ được update mới sau từng buổi học.</p>
     </div>
 
-    <div class="topics-wrap">
-      <div id="topicOptions" class="topic-options">Đang tải dữ liệu...</div>
-    </div>
-
+    <div id="topicOptions" class="topic-options">Đang tải dữ liệu...</div>
     <div class="question" id="question">Chưa có dữ liệu.</div>
     <div class="answer" id="answer"></div>
     <div id="progress">0/0 câu</div>
@@ -79,167 +102,187 @@
   </div>
 
   <script>
+    // ===================
+    // DỮ LIỆU & TRẠNG THÁI
+    // ===================
     let allData = [], filteredData = [], usedIndexes = [], currentIndex = -1;
 
-    /* --------- Đường dẫn file Excel cho GitHub Pages (subpath) --------- */
-    const basePath = location.pathname.replace(/[^/]+$/,'');
     const possibleFiles = [
-      `${basePath}Uspeak_TTK.xlsx`,
-      `${basePath}data.xlsx`,
-      'Uspeak_TTK.xlsx', // fallback
-      'data.xlsx'        // fallback
+      'Uspeak_TTK.xlsx',
+      'data.xlsx'
     ];
 
-    /* --------- Load Excel: đọc tất cả sheet + tắt cache --------- */
+    // ===================
+    // TTS HELPER + AUTOPLAY GATE
+    // ===================
+    let cachedVoices = [];
+    let canAutoSpeak = false;     // chỉ true sau tương tác đầu tiên
+    let pendingSpeakText = null;  // lưu câu hỏi nếu hiển thị trước khi được phép autoplay
+
+    const refreshVoices = () => { cachedVoices = speechSynthesis.getVoices(); };
+    speechSynthesis.onvoiceschanged = refreshVoices; refreshVoices();
+
+    function pickVoice(langCode, preferContains = 'google') {
+      if (!cachedVoices.length) refreshVoices();
+      let v = cachedVoices.find(v => v.lang?.toLowerCase() === langCode.toLowerCase() &&
+                                     v.name?.toLowerCase().includes(preferContains));
+      return v || cachedVoices.find(v => v.lang?.toLowerCase() === langCode.toLowerCase()) || null;
+    }
+
+    function speakText(text, langCode) {
+      if (!text) return;
+      try {
+        if (speechSynthesis.speaking) speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = langCode;
+        const v = pickVoice(langCode);
+        if (v) u.voice = v;
+        speechSynthesis.speak(u);
+      } catch (e) {
+        console.warn('Speech synthesis error:', e);
+      }
+    }
+
+    // cấp quyền autoplay sau tương tác đầu tiên (bất kỳ click/keydown nào)
+    const enableAutoSpeakOnce = () => {
+      if (!canAutoSpeak) {
+        canAutoSpeak = true;
+        if (pendingSpeakText) {
+          const text = pendingSpeakText; pendingSpeakText = null;
+          speakText(text, 'vi-VN');
+        }
+      }
+      document.removeEventListener('click', enableAutoSpeakOnce, true);
+      document.removeEventListener('keydown', enableAutoSpeakOnce, true);
+    };
+    document.addEventListener('click', enableAutoSpeakOnce, true);
+    document.addEventListener('keydown', enableAutoSpeakOnce, true);
+
+    // ===================
+    // NẠP EXCEL
+    // ===================
     async function tryLoadExcelFiles() {
-      const errors = [];
-      for (const url of possibleFiles) {
+      for (const file of possibleFiles) {
         try {
-          const res = await fetch(encodeURI(url), { cache: 'no-store' });
-          if (!res.ok) { errors.push(`${url} -> HTTP ${res.status}`); continue; }
+          const res = await fetch(file);
+          if (!res.ok) continue;
 
           const buffer = await res.arrayBuffer();
-          const workbook = XLSX.read(buffer, { type: "array" });
+          const workbook = XLSX.read(buffer, { type: 'array' });
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          const json = XLSX.utils.sheet_to_json(sheet);
 
-          // Gộp tất cả sheet
-          let merged = [];
-          for (const sName of workbook.SheetNames) {
-            const sheet = workbook.Sheets[sName];
-            if (!sheet) continue;
-            const json = XLSX.utils.sheet_to_json(sheet);
-            if (Array.isArray(json) && json.length) merged = merged.concat(json);
-          }
-
-          // Đọc linh hoạt tên cột
-          const pick = (row, keys) => {
-            for (const k of keys) {
-              if (row[k] !== undefined && row[k] !== null && `${row[k]}`.trim() !== '') return `${row[k]}`;
-            }
-            const norm = Object.fromEntries(Object.keys(row).map(k => [k.toLowerCase().replace(/\s|_/g,''), k]));
-            for (const k of keys) {
-              const kk = k.toLowerCase().replace(/\s|_/g,'');
-              const real = norm[kk];
-              if (real !== undefined) {
-                const v = row[real];
-                if (v !== undefined && v !== null && `${v}`.trim() !== '') return `${v}`;
-              }
-            }
-            return '';
-          };
-
-          allData = merged.map(row => ({
-            topic: pick(row, ["CHU_DE","CHU DE","CHUDE","Chu_de","chu_de","TOPIC","Chủ đề","Chude"]).trim(),
-            vi:    pick(row, ["DE_BAI","DE BAI","DEBAI","De_bai","CÂU HỎI","VI","Question"]).trim(),
-            en:    pick(row, ["DAP_AN","DAP AN","DAPAN","Dap_an","TRẢ LỜI","EN","Answer"]).trim()
+          allData = json.map(row => ({
+            topic: row['CHU_DE']?.toString().trim(),
+            vi: row['DE_BAI']?.toString().trim(),
+            en: row['DAP_AN']?.toString().trim()
           })).filter(item => item.topic && item.vi && item.en);
 
           createTopicCheckboxes();
-          return; // OK
+          return;
         } catch (err) {
-          errors.push(`${url} -> ${err && err.message ? err.message : 'fetch/read failed'}`);
+          console.log('Không thể đọc file:', file);
         }
       }
-      document.getElementById("question").innerText = "Không tìm thấy file Excel phù hợp!\n" + errors.join("\n");
+      document.getElementById('question').innerText = 'Không tìm thấy file Excel phù hợp!';
     }
 
-    /* --------- Sắp xếp số tự nhiên cho chủ đề (1,2,3…10,11) --------- */
-    function naturalTopicSort(a, b){
-      const mA = a.match(/^\s*(\d+)/), mB = b.match(/^\s*(\d+)/);
-      if (mA && mB) {
-        const nA = +mA[1], nB = +mB[1];
-        if (nA !== nB) return nA - nB;
-        const restA = a.slice(mA[0].length).trim();
-        const restB = b.slice(mB[0].length).trim();
-        return restA.localeCompare(restB,'vi');
-      }
-      if (mA) return -1;
-      if (mB) return 1;
-      return a.localeCompare(b,'vi');
-    }
-
+    // ===================
+    // UI CHỦ ĐỀ
+    // ===================
     function createTopicCheckboxes() {
-      const container = document.getElementById("topicOptions");
-      const topics = [...new Set(allData.map(d => d.topic))].sort(naturalTopicSort);
+      const container = document.getElementById('topicOptions');
+      const topics = [...new Set(allData.map(d => d.topic))].sort();
       container.innerHTML = '';
 
-      // Tất cả
-      const allBox = document.createElement("div");
-      allBox.className = "topic-option";
-      allBox.innerHTML = `<input type="checkbox" id="allTopics" checked> <label for="allTopics"><strong>Tất cả</strong></label>`;
+      const allBox = document.createElement('div');
+      allBox.className = 'topic-option';
+      allBox.innerHTML = `<input type="checkbox" id="allTopics"> <label for="allTopics"><strong>Tất cả</strong></label>`;
       container.appendChild(allBox);
 
-      // Chủ đề
       topics.forEach(topic => {
-        const div = document.createElement("div");
-        div.className = "topic-option";
-        const safeId = `t_${btoa(topic).replace(/[^a-z0-9]/gi,'')}`;
-        div.innerHTML = `<input type="checkbox" class="topicCheckbox" id="${safeId}" value="${topic}"> <label for="${safeId}">${topic}</label>`;
+        const div = document.createElement('div');
+        div.className = 'topic-option';
+        div.innerHTML = `<input type=\"checkbox\" class=\"topicCheckbox\" value=\"${topic}\"> <label>${topic}</label>`;
         container.appendChild(div);
       });
 
       container.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-        cb.addEventListener("change", handleTopicFilter);
+        cb.addEventListener('change', handleTopicFilter);
       });
 
       handleTopicFilter();
     }
 
     function handleTopicFilter() {
-      const checkAll = document.getElementById("allTopics").checked;
-      const checkboxes = document.querySelectorAll(".topicCheckbox");
+      const checkAll = document.getElementById('allTopics').checked;
+      const checkboxes = document.querySelectorAll('.topicCheckbox');
+
+      let selectedTopics = [];
 
       if (checkAll) {
         filteredData = [...allData];
         checkboxes.forEach(cb => cb.checked = false);
       } else {
-        const selectedTopics = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value);
+        selectedTopics = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value);
         filteredData = allData.filter(item => selectedTopics.includes(item.topic));
       }
 
       usedIndexes = [];
-      document.getElementById("progress").innerText = `0/${filteredData.length} câu`;
-      document.getElementById("nextBtn").disabled = filteredData.length === 0;
-      document.getElementById("showAnswerBtn").disabled = true;
+      document.getElementById('progress').innerText = `0/${filteredData.length} câu`;
 
-      if (filteredData.length > 0) nextQuestion();
-      else {
-        document.getElementById("question").innerText = "Vui lòng chọn ít nhất một chủ đề!";
-        document.getElementById("answer").innerText = "";
+      document.getElementById('nextBtn').disabled = filteredData.length === 0;
+      document.getElementById('showAnswerBtn').disabled = true;
+
+      if (filteredData.length > 0) {
+        nextQuestion();
+      } else {
+        document.getElementById('question').innerText = 'Vui lòng chọn ít nhất một chủ đề!';
+        document.getElementById('answer').innerText = '';
       }
     }
 
+    // ===================
+    // CÂU HỎI
+    // ===================
     function nextQuestion() {
       if (filteredData.length === 0) return;
       if (usedIndexes.length === filteredData.length) usedIndexes = [];
 
-      const available = filteredData.map((_, i) => i).filter(i => !usedIndexes.includes(i));
-      currentIndex = available[Math.floor(Math.random() * available.length)];
+      const availableIndexes = filteredData.map((_, idx) => idx).filter(idx => !usedIndexes.includes(idx));
+      currentIndex = availableIndexes[Math.floor(Math.random() * availableIndexes.length)];
       usedIndexes.push(currentIndex);
 
       const q = filteredData[currentIndex];
-      document.getElementById("question").innerText = q.vi;
-      document.getElementById("answer").innerText = q.en;
-      document.getElementById("answer").classList.remove("show");
-      document.getElementById("showAnswerBtn").disabled = false;
+      document.getElementById('question').innerText = q.vi;
+      document.getElementById('answer').innerText = q.en;
+      document.getElementById('answer').classList.remove('show');
+      document.getElementById('showAnswerBtn').disabled = false;
 
-      document.getElementById("progress").innerText = `${usedIndexes.length}/${filteredData.length} câu`;
+      document.getElementById('progress').innerText = `${usedIndexes.length}/${filteredData.length} câu`;
+
+      // === TỰ ĐỘNG ĐỌC DE_BAI (tiếng Việt) ===
+      if (canAutoSpeak) {
+        speakText(q.vi, 'vi-VN');
+      } else {
+        pendingSpeakText = q.vi; // chờ user tương tác đầu tiên
+      }
     }
 
     function showAnswer() {
-      const text = document.getElementById("answer").innerText;
-      document.getElementById("answer").classList.add("show");
-
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = "en-US";
-      const voices = speechSynthesis.getVoices();
-      const preferred = voices.find(v => v.lang === 'en-US' && v.name.toLowerCase().includes('google'));
-      if (preferred) utterance.voice = preferred;
-      speechSynthesis.speak(utterance);
+      const text = document.getElementById('answer').innerText;
+      document.getElementById('answer').classList.add('show');
+      // đọc đáp án (tiếng Anh) — giữ như cũ nhưng dùng helper cho gọn
+      speakText(text, 'en-US');
     }
 
-    document.getElementById("nextBtn").addEventListener("click", nextQuestion);
-    document.getElementById("showAnswerBtn").addEventListener("click", showAnswer);
+    // ===================
+    // SỰ KIỆN
+    // ===================
+    document.getElementById('nextBtn').addEventListener('click', nextQuestion);
+    document.getElementById('showAnswerBtn').addEventListener('click', showAnswer);
 
+    // BẮT ĐẦU
     tryLoadExcelFiles();
   </script>
 </body>

@@ -51,10 +51,11 @@
     }
     .answer.show { display: block; }
 
-    /* IPA hiển thị dưới English */
+    /* IPA hiển thị dưới English (màu cam đỏ) */
     .ipa {
       font-size: 1.05em;
-      color: #444;
+      color: #ff4500;       /* cam đỏ */
+      font-weight: 600;
       margin-top: 6px;
       display: none;
     }
@@ -94,7 +95,7 @@
     .topic-option label {
       font-size: 0.9em;
       white-space: nowrap;
-      max-width: 180px;
+      max-width: 200px;
       overflow: hidden;
       text-overflow: ellipsis;
     }
@@ -113,7 +114,7 @@
   <div class="container">
     <div class="header">
       <h1>USPEAK-TALK TO KID</h1>
-      <p>Hãy ôn tập mỗi ngày nhé.</p>
+      <p>Dữ liệu sẽ được update mới sau từng buổi học.</p>
     </div>
 
     <div id="topicOptions" class="topic-options">Đang tải dữ liệu...</div>
@@ -220,8 +221,8 @@
             const parsed = parseTopic(row['CHU_DE']);
             return {
               topicRaw: parsed.raw,      // ví dụ: "12-Respecting Grandparents"
-              topicName: parsed.name,    // ví dụ: "Respecting Grandparents"
-              topicOrder: parsed.order,  // ví dụ: 12 (Infinity nếu không có số)
+              topicName: parsed.name,    // "Respecting Grandparents"
+              topicOrder: parsed.order,  // 12 (Infinity nếu không có số)
               vi: (row['DE_BAI'] ?? '').toString().trim(),
               en: (row['DAP_AN'] ?? '').toString().trim(),
               ipa: (row['IPA'] ?? '').toString().trim()
@@ -238,18 +239,17 @@
     }
 
     // ===================
-    // UI CHỦ ĐỀ (sắp theo số trước dấu "-")
+    // UI CHỦ ĐỀ: hiển thị số thứ tự + sắp theo số
     // ===================
     function createTopicCheckboxes() {
       const container = document.getElementById('topicOptions');
 
-      // Lấy unique theo topicName
+      // Lấy unique theo topicName, giữ order nhỏ nhất nếu trùng
       const topicMap = new Map(); // name -> {name, order, raw}
       for (const d of allData) {
         if (!topicMap.has(d.topicName)) {
           topicMap.set(d.topicName, { name: d.topicName, order: d.topicOrder, raw: d.topicRaw });
         } else {
-          // Nếu trùng name nhưng order nhỏ hơn, cập nhật order (bảo thủ)
           const cur = topicMap.get(d.topicName);
           if (d.topicOrder < cur.order) topicMap.set(d.topicName, { name: d.topicName, order: d.topicOrder, raw: d.topicRaw });
         }
@@ -267,13 +267,15 @@
       allBox.innerHTML = `<input type="checkbox" id="allTopics"> <label for="allTopics"><strong>Tất cả</strong></label>`;
       container.appendChild(allBox);
 
-      // Render theo thứ tự đã sort bằng số
+      // Render theo thứ tự đã sort; label hiển thị số nếu có
       topics.forEach(t => {
         const div = document.createElement('div');
         div.className = 'topic-option';
+        const prefix = Number.isFinite(t.order) ? `${t.order}-` : '';
+        // value = topicName để filter ổn định; label hiển thị "order-name"
         div.innerHTML =
           `<input type="checkbox" class="topicCheckbox" value="${t.name}">
-           <label title="${t.raw}">${t.name}</label>`;
+           <label title="${t.raw}">${prefix}${t.name}</label>`;
         container.appendChild(div);
       });
 

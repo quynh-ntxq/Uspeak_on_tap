@@ -47,9 +47,19 @@
       color: green;
       font-weight: bold;
       display: none;
-      margin-bottom: 10px;
+      margin-bottom: 6px;
     }
     .answer.show { display: block; }
+
+    /* IPA hiển thị dưới English */
+    .ipa {
+      font-size: 1.05em;
+      color: #444;
+      margin-top: 6px;
+      display: none;
+    }
+    .ipa.show { display: block; }
+
     .btn {
       padding: 12px 24px;
       border: none;
@@ -61,24 +71,38 @@
     }
     .btn-primary { background: #002F87; color: white; }
     .btn-secondary { background: #4CAF50; color: white; }
+
+    /* BOX CHỦ ĐỀ: gọn hơn */
     .topic-options {
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
-      gap: 10px;
+      gap: 6px;               /* thu hẹp khoảng cách giữa các ô */
       margin-top: 10px;
     }
     .topic-option {
-      background: #f0f0f0;
-      padding: 8px 12px;
+      background: #f7f7f7;
+      padding: 4px 8px;       /* padding nhỏ hơn */
       border-radius: 10px;
-      display: flex;
+      display: inline-flex;   /* gọn chiều ngang */
       align-items: center;
       gap: 6px;
+      font-size: 0.9em;       /* chữ nhỏ gọn */
+      line-height: 1.2;
+      border: 1px solid #eee; /* ranh giới nhẹ */
+    }
+    .topic-option label {
+      font-size: 0.9em;
+      white-space: nowrap;
+      max-width: 180px;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .topic-option input[type="checkbox"] {
       cursor: pointer;
+      transform: scale(0.95);
     }
+
     #progress {
       font-weight: bold;
       margin-top: 10px;
@@ -89,12 +113,15 @@
   <div class="container">
     <div class="header">
       <h1>USPEAK-TALK TO KID</h1>
-      <p>Dữ liệu sẽ được update mới sau từng buổi học.</p>
+      <p>Hãy ôn tập mỗi ngày nhé.</p>
     </div>
 
     <div id="topicOptions" class="topic-options">Đang tải dữ liệu...</div>
     <div class="question" id="question">Chưa có dữ liệu.</div>
     <div class="answer" id="answer"></div>
+    <!-- IPA hiển thị dưới English -->
+    <div class="ipa" id="ipa"></div>
+
     <div id="progress">0/0 câu</div>
 
     <button class="btn btn-primary" id="showAnswerBtn" disabled><i class="fa fa-eye"></i> Xem kết quả</button>
@@ -159,6 +186,22 @@
     document.addEventListener('keydown', enableAutoSpeakOnce, true);
 
     // ===================
+    // HELPERS
+    // ===================
+    function parseTopic(raw) {
+      // Lấy số thứ tự trước dấu "-" nếu có
+      // Ví dụ: "12-Respecting Grandparents" -> {order:12, name:"Respecting Grandparents"}
+      if (!raw) return { order: Number.POSITIVE_INFINITY, name: '' , raw: ''};
+      const s = String(raw).trim();
+      const m = s.match(/^\s*(\d+)\s*-\s*(.+)$/);
+      if (m) {
+        return { order: parseInt(m[1], 10), name: m[2].trim(), raw: s };
+      }
+      // Không có tiền tố số -> xếp cuối, giữ nguyên tên
+      return { order: Number.POSITIVE_INFINITY, name: s, raw: s };
+    }
+
+    // ===================
     // NẠP EXCEL
     // ===================
     async function tryLoadExcelFiles() {
@@ -172,11 +215,18 @@
           const sheet = workbook.Sheets[workbook.SheetNames[0]];
           const json = XLSX.utils.sheet_to_json(sheet);
 
-          allData = json.map(row => ({
-            topic: row['CHU_DE']?.toString().trim(),
-            vi: row['DE_BAI']?.toString().trim(),
-            en: row['DAP_AN']?.toString().trim()
-          })).filter(item => item.topic && item.vi && item.en);
+          // ĐỌC THÊM CỘT IPA (nếu có) + PARSE CHỦ ĐỀ
+          allData = json.map(row => {
+            const parsed = parseTopic(row['CHU_DE']);
+            return {
+              topicRaw: parsed.raw,      // ví dụ: "12-Respecting Grandparents"
+              topicName: parsed.name,    // ví dụ: "Respecting Grandparents"
+              topicOrder: parsed.order,  // ví dụ: 12 (Infinity nếu không có số)
+              vi: (row['DE_BAI'] ?? '').toString().trim(),
+              en: (row['DAP_AN'] ?? '').toString().trim(),
+              ipa: (row['IPA'] ?? '').toString().trim()
+            };
+          }).filter(item => item.topicName && item.vi && item.en);
 
           createTopicCheckboxes();
           return;
@@ -188,22 +238,42 @@
     }
 
     // ===================
-    // UI CHỦ ĐỀ
+    // UI CHỦ ĐỀ (sắp theo số trước dấu "-")
     // ===================
     function createTopicCheckboxes() {
       const container = document.getElementById('topicOptions');
-      const topics = [...new Set(allData.map(d => d.topic))].sort();
+
+      // Lấy unique theo topicName
+      const topicMap = new Map(); // name -> {name, order, raw}
+      for (const d of allData) {
+        if (!topicMap.has(d.topicName)) {
+          topicMap.set(d.topicName, { name: d.topicName, order: d.topicOrder, raw: d.topicRaw });
+        } else {
+          // Nếu trùng name nhưng order nhỏ hơn, cập nhật order (bảo thủ)
+          const cur = topicMap.get(d.topicName);
+          if (d.topicOrder < cur.order) topicMap.set(d.topicName, { name: d.topicName, order: d.topicOrder, raw: d.topicRaw });
+        }
+      }
+      const topics = Array.from(topicMap.values())
+        .sort((a, b) => (a.order === b.order)
+          ? a.name.localeCompare(b.name)
+          : a.order - b.order);
+
       container.innerHTML = '';
 
+      // Checkbox "Tất cả"
       const allBox = document.createElement('div');
       allBox.className = 'topic-option';
       allBox.innerHTML = `<input type="checkbox" id="allTopics"> <label for="allTopics"><strong>Tất cả</strong></label>`;
       container.appendChild(allBox);
 
-      topics.forEach(topic => {
+      // Render theo thứ tự đã sort bằng số
+      topics.forEach(t => {
         const div = document.createElement('div');
         div.className = 'topic-option';
-        div.innerHTML = `<input type=\"checkbox\" class=\"topicCheckbox\" value=\"${topic}\"> <label>${topic}</label>`;
+        div.innerHTML =
+          `<input type="checkbox" class="topicCheckbox" value="${t.name}">
+           <label title="${t.raw}">${t.name}</label>`;
         container.appendChild(div);
       });
 
@@ -218,14 +288,12 @@
       const checkAll = document.getElementById('allTopics').checked;
       const checkboxes = document.querySelectorAll('.topicCheckbox');
 
-      let selectedTopics = [];
-
       if (checkAll) {
         filteredData = [...allData];
         checkboxes.forEach(cb => cb.checked = false);
       } else {
-        selectedTopics = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value);
-        filteredData = allData.filter(item => selectedTopics.includes(item.topic));
+        const selectedTopics = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value);
+        filteredData = allData.filter(item => selectedTopics.includes(item.topicName));
       }
 
       usedIndexes = [];
@@ -239,6 +307,9 @@
       } else {
         document.getElementById('question').innerText = 'Vui lòng chọn ít nhất một chủ đề!';
         document.getElementById('answer').innerText = '';
+        const ipaEl = document.getElementById('ipa');
+        ipaEl.innerText = '';
+        ipaEl.classList.remove('show');
       }
     }
 
@@ -257,9 +328,14 @@
       document.getElementById('question').innerText = q.vi;
       document.getElementById('answer').innerText = q.en;
       document.getElementById('answer').classList.remove('show');
-      document.getElementById('showAnswerBtn').disabled = false;
+
+      // reset IPA
+      const ipaEl = document.getElementById('ipa');
+      ipaEl.innerText = '';
+      ipaEl.classList.remove('show');
 
       document.getElementById('progress').innerText = `${usedIndexes.length}/${filteredData.length} câu`;
+      document.getElementById('showAnswerBtn').disabled = false;
 
       // tự động đọc DE_BAI với tốc độ 2x
       if (canAutoSpeak) {
@@ -272,6 +348,20 @@
     function showAnswer() {
       const text = document.getElementById('answer').innerText;
       document.getElementById('answer').classList.add('show');
+
+      // hiển thị IPA dưới English nếu có
+      const q = filteredData[currentIndex];
+      const ipaEl = document.getElementById('ipa');
+      if (q?.ipa) {
+        const t = q.ipa.trim();
+        const hasSlashes = /^\/.*\/$/.test(t);
+        ipaEl.innerText = hasSlashes ? t : `/${t}/`;
+        ipaEl.classList.add('show');
+      } else {
+        ipaEl.innerText = '';
+        ipaEl.classList.remove('show');
+      }
+
       speakText(text, 'en-US', 1);
     }
 
